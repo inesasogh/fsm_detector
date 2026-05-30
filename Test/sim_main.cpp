@@ -20,7 +20,8 @@ int main(){
     }
     vpiHandle top_design = designs[0];
     vpiHandle module_iter = vpi_iterate(UHDM::uhdmallModules, top_design);
-    
+    std::string assignment_var;
+    std::string case_var;
     if(module_iter != nullptr){
         while(vpiHandle current_m = vpi_scan(module_iter)){
             std::string module_name = vpi_get_str(vpiName, current_m);
@@ -38,14 +39,21 @@ int main(){
                                 vpiHandle iner_stmt = vpi_handle(vpiStmt, stmt);
                                 if(iner_stmt != nullptr){
                                     PLI_INT32 type_iner_stmt = vpi_get(vpiType,iner_stmt);
-                                    if(type_iner_stmt = vpiBegin){
-                                        vpiHandle sub_iner_stmt = vpi_handle(vpiStmt, iner_stmt);
+                                    if(type_iner_stmt == vpiBegin){
+                                        vpiHandle sub_iner_stmt = vpi_iterate(vpiStmt, iner_stmt);
                                         if(sub_iner_stmt != nullptr){
                                             while(vpiHandle sub_stmt = vpi_scan(sub_iner_stmt)){
-                                                PLI_INT32 type_sub = vpi_get(vpiStmt,sub_stmt);
+                                                PLI_INT32 type_sub = vpi_get(vpiType ,sub_stmt);
                                                 if(type_sub == vpiAssignment){
                                                     std::cout<<"Found state reg update assignment"<<std::endl;
-                                                }
+                                                    vpiHandle LHS = vpi_handle(vpiLhs,sub_stmt);
+                                                    vpiHandle RHS = vpi_handle(vpiRhs, sub_stmt);
+                                                    if(LHS != nullptr){
+                                                        assignment_var = vpi_get_str(vpiName,LHS);
+                                                        std::cout<<"LHS:"<<vpi_get_str(vpiName, LHS);
+                                                    }if(RHS != nullptr){
+                                                        std::cout<<"RHS:"<<vpi_get_str(vpiName, RHS);
+                                                    }                                                }
                                                 if(type_sub == vpiCase){
                                                     std::cout<<"Found Case statement inside clocked block" <<std::endl;
                                                 }
@@ -73,6 +81,7 @@ int main(){
                                std::cout<<"Found FSM Case statement"<<std::endl;
                                vpiHandle case_expr = vpi_handle(vpiCondition, stmt);
                                if(case_expr != nullptr){
+                                case_var = vpi_get_str(vpiName,case_expr);
                                 std::cout<<"Tracking variable:" <<vpi_get_str(vpiName, case_expr);
                                 vpi_free_object(case_expr);
                                }
@@ -95,6 +104,10 @@ int main(){
                             vpi_free_object(stmt);
                         }
                     }
+                }
+                if(!assignment_var.empty() && !case_var.empty() && assignment_var == case_var){
+                    std::cout<<"FSM Detected"<<std::endl;
+                    std::cout<<"state variable:"<<assignment_var<<std::endl;
                 }
             }
             else{
